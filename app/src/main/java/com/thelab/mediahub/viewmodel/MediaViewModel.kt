@@ -8,6 +8,7 @@ import com.thelab.mediahub.data.AppDatabase
 import com.thelab.mediahub.data.FileCategory
 import com.thelab.mediahub.data.MediaItem
 import com.thelab.mediahub.engine.FileClassifier
+import com.thelab.mediahub.engine.InternetIngestionEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,16 +39,19 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun triggerDirectorySweep() {
+    fun triggerFullSweep() {
         viewModelScope.launch(Dispatchers.IO) {
             _isScanning.value = true
+            
+            val discoveredFiles = mutableListOf<MediaItem>()
+
+            // 1. Scan Local Storage
             val targetDirs = listOf(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 File(Environment.getExternalStorageDirectory(), "WhatsApp/Media"),
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
             )
 
-            val discoveredFiles = mutableListOf<MediaItem>()
             for (dir in targetDirs) {
                 if (dir.exists() && dir.isDirectory) {
                     dir.walkTopDown().filter { it.isFile }.forEach { file ->
@@ -55,6 +59,17 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+
+            // 2. Fetch Internet Movies (2026) & Prompts
+            val movies = InternetIngestionEngine.fetch2026Movies()
+            val prompts = InternetIngestionEngine.fetchLatestPrompts()
+            
+            // 3. Scan Wi-Fi LAN
+            val networkDevices = InternetIngestionEngine.scanLocalWifiNetwork()
+
+            discoveredFiles.addAll(movies)
+            discoveredFiles.addAll(prompts)
+            discoveredFiles.addAll(networkDevices)
 
             mediaDao.insertAll(discoveredFiles)
             _isScanning.value = false
