@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 enum class FileCategory {
-    PHOTO, VIDEO, DOCUMENT, PACKAGE, UNKNOWN
+    ALL, PHOTO, VIDEO, DOCUMENT, PACKAGE, UNKNOWN
 }
 
 @Entity(tableName = "media_items")

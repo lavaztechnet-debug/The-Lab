@@ -30,6 +30,9 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    private val _selectedCategory = MutableStateFlow<FileCategory?>(null)
+    val selectedCategory: StateFlow<FileCategory?> = _selectedCategory.asStateFlow()
+
     private val _excludeLocal = MutableStateFlow(false)
     val excludeLocal: StateFlow<Boolean> = _excludeLocal.asStateFlow()
 
@@ -39,7 +42,13 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadAllMedia() {
         viewModelScope.launch {
-            mediaDao.getAllMediaItems().collect { items ->
+            val flow = if (_selectedCategory.value == null || _selectedCategory.value == FileCategory.ALL) {
+                mediaDao.getAllMediaItems()
+            } else {
+                mediaDao.getMediaByCategory(_selectedCategory.value!!)
+            }
+
+            flow.collect { items ->
                 _mediaItems.value = if (_excludeLocal.value) {
                     items.filter { it.path.startsWith("http") || it.path.startsWith("network://") }
                 } else {
@@ -49,32 +58,34 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun filterByCategory(category: FileCategory?) {
+        _selectedCategory.value = category
+        loadAllMedia()
+    }
+
     fun toggleExcludeLocal(exclude: Boolean) {
         _excludeLocal.value = exclude
         loadAllMedia()
     }
 
-    // Android Native System DownloadManager Handler (Crash-Free)
     fun downloadMediaItem(item: MediaItem) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (item.path.startsWith("http://") || item.path.startsWith("https://")) {
                     val request = DownloadManager.Request(Uri.parse(item.path))
                         .setTitle("The-Lab: " + item.fileName)
-                        .setDescription("Downloading discovered media resource...")
+                        .setDescription("Downloading discovered media...")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "The-Lab/" + item.fileName + ".mp4")
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "The-Lab/" + item.fileName)
                         .setAllowedOverMetered(true)
-                        .setAllowedOverRoaming(true)
 
                     val downloadManager = getApplication<Application>().getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                     downloadManager.enqueue(request)
                 } else {
-                    // Local or text item
                     val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "The-Lab")
                     if (!downloadDir.exists()) downloadDir.mkdirs()
-                    val targetFile = File(downloadDir, item.fileName.replace("[^a-zA-Z0-9.-]".toRegex(), "_") + ".txt")
-                    targetFile.writeText("Resource: ${item.fileName}\nSource Path: ${item.path}\nCategory: ${item.category}\n\n${item.formattedLabel}")
+                    val targetFile = File(downloadDir, item.fileName + ".txt")
+                    targetFile.writeText("Label: ${item.formattedLabel}\nPath: ${item.path}\nCategory: ${item.category.name}")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -88,6 +99,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
             
             val discoveredFiles = mutableListOf<MediaItem>()
 
+            // 1. Scan Storage
             val targetDirs = listOf(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 File(Environment.getExternalStorageDirectory(), "WhatsApp/Media"),
@@ -102,6 +114,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
+            // 2. Scan Web & Network
             val horrorMovies = InternetIngestionEngine.fetchHorrorMovies()
             val prompts = InternetIngestionEngine.fetchLatestPrompts()
             val networkDevices = InternetIngestionEngine.scanLocalWifiNetwork()
@@ -112,22 +125,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
 
             mediaDao.insertAll(discoveredFiles)
             _isScanning.value = false
-        }
-    }
-
-    fun filterByCategory(category: FileCategory?) {
-        viewModelScope.launch {
-            if (category == null) {
-                loadAllMedia()
-            } else {
-                mediaDao.getMediaByCategory(category).collect { items ->
-                    _mediaItems.value = if (_excludeLocal.value) {
-                        items.filter { it.path.startsWith("http") || it.path.startsWith("network://") }
-                    } else {
-                        items
-                    }
-                }
-            }
+            loadAllMedia()
         }
     }
 
