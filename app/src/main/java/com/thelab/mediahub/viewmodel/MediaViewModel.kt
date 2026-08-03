@@ -27,6 +27,9 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    private val _excludeLocal = MutableStateFlow(false)
+    val excludeLocal: StateFlow<Boolean> = _excludeLocal.asStateFlow()
+
     init {
         loadAllMedia()
     }
@@ -34,8 +37,27 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
     fun loadAllMedia() {
         viewModelScope.launch {
             mediaDao.getAllMediaItems().collect { items ->
-                _mediaItems.value = items
+                _mediaItems.value = if (_excludeLocal.value) {
+                    items.filter { it.path.startsWith("web://") || it.path.startsWith("network://") }
+                } else {
+                    items
+                }
             }
+        }
+    }
+
+    fun toggleExcludeLocal(exclude: Boolean) {
+        _excludeLocal.value = exclude
+        loadAllMedia()
+    }
+
+    fun downloadMediaItem(item: MediaItem) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "The-Lab")
+            if (!downloadDir.exists()) downloadDir.mkdirs()
+
+            val targetFile = File(downloadDir, item.fileName.replace("/", "_") + ".txt")
+            targetFile.writeText("Resource: ${item.fileName}\nSource Path: ${item.path}\nCategory: ${item.category}\n\n${item.formattedLabel}")
         }
     }
 
@@ -45,7 +67,6 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
             
             val discoveredFiles = mutableListOf<MediaItem>()
 
-            // 1. Scan Local Storage
             val targetDirs = listOf(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 File(Environment.getExternalStorageDirectory(), "WhatsApp/Media"),
@@ -60,11 +81,8 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            // 2. Fetch Internet Movies (2026) & Prompts
             val movies = InternetIngestionEngine.fetch2026Movies()
             val prompts = InternetIngestionEngine.fetchLatestPrompts()
-            
-            // 3. Scan Wi-Fi LAN
             val networkDevices = InternetIngestionEngine.scanLocalWifiNetwork()
 
             discoveredFiles.addAll(movies)
@@ -82,7 +100,11 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 loadAllMedia()
             } else {
                 mediaDao.getMediaByCategory(category).collect { items ->
-                    _mediaItems.value = items
+                    _mediaItems.value = if (_excludeLocal.value) {
+                        items.filter { it.path.startsWith("web://") || it.path.startsWith("network://") }
+                    } else {
+                        items
+                    }
                 }
             }
         }
@@ -94,7 +116,11 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 loadAllMedia()
             } else {
                 mediaDao.searchMedia(query).collect { items ->
-                    _mediaItems.value = items
+                    _mediaItems.value = if (_excludeLocal.value) {
+                        items.filter { it.path.startsWith("web://") || it.path.startsWith("network://") }
+                    } else {
+                        items
+                    }
                 }
             }
         }

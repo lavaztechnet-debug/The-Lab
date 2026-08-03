@@ -15,6 +15,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.thelab.mediahub.ui.screens.ApkInspectorScreen
 import com.thelab.mediahub.ui.screens.MainDashboardScreen
+import com.thelab.mediahub.ui.screens.SettingsScreen
+import com.thelab.mediahub.ui.theme.AppThemeStyle
 import com.thelab.mediahub.ui.theme.TheLabTheme
 import com.thelab.mediahub.viewmodel.MediaViewModel
 
@@ -27,7 +29,10 @@ class MainActivity : ComponentActivity() {
         requestStoragePermissions()
 
         setContent {
-            TheLabTheme {
+            var isDarkTheme by remember { mutableStateOf(true) }
+            var currentStyle by remember { mutableStateOf(AppThemeStyle.CHARCOAL) }
+
+            TheLabTheme(darkTheme = isDarkTheme, themeStyle = currentStyle) {
                 val navController = rememberNavController()
 
                 NavHost(navController = navController, startDestination = "dashboard") {
@@ -37,7 +42,17 @@ class MainActivity : ComponentActivity() {
                             onInspectApk = { apkPath ->
                                 val encoded = java.net.URLEncoder.encode(apkPath, "UTF-8")
                                 navController.navigate("inspector/$encoded")
-                            }
+                            },
+                            onOpenSettings = { navController.navigate("settings") }
+                        )
+                    }
+                    composable("settings") {
+                        SettingsScreen(
+                            isDarkTheme = isDarkTheme,
+                            onToggleDarkTheme = { isDarkTheme = it },
+                            currentStyle = currentStyle,
+                            onSelectStyle = { currentStyle = it },
+                            onBack = { navController.popBackStack() }
                         )
                     }
                     composable("inspector/{apkPath}") { backStackEntry ->
