@@ -42,7 +42,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
     fun triggerFullSweep() {
         viewModelScope.launch(Dispatchers.IO) {
             _isScanning.value = true
-            
+
             val discoveredFiles = mutableListOf<MediaItem>()
 
             // 1. Scan Local Storage
@@ -63,7 +63,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
             // 2. Fetch Internet Movies (2026) & Prompts
             val movies = InternetIngestionEngine.fetch2026Movies()
             val prompts = InternetIngestionEngine.fetchLatestPrompts()
-            
+
             // 3. Scan Wi-Fi LAN
             val networkDevices = InternetIngestionEngine.scanLocalWifiNetwork()
 
@@ -74,6 +74,11 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
             mediaDao.insertAll(discoveredFiles)
             _isScanning.value = false
         }
+    }
+
+    // Backwards-compatible alias expected by the UI: forward to triggerFullSweep()
+    fun triggerDirectorySweep() {
+        triggerFullSweep()
     }
 
     fun filterByCategory(category: FileCategory?) {
