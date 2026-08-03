@@ -20,11 +20,21 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle Wrapper & Clean Build
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: wrapper
+          cache-disabled: false
+
+      - name: Clean Build Cache & KSP Cache
         run: |
-          gradle wrapper --gradle-version 8.7
           chmod +x gradlew
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
+          ./gradlew clean --no-daemon
+          rm -rf app/build/generated/ksp
+          rm -rf .gradle
+
+      - name: Build APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
