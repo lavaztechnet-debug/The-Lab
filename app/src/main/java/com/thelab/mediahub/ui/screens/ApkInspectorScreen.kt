@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -16,8 +17,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.thelab.mediahub.ui.theme.CharcoalBg
-import com.thelab.mediahub.ui.theme.ElectricBlue
 import com.thelab.mediahub.ui.theme.TextGray
 import com.thelab.mediahub.ui.theme.TextWhite
 
@@ -36,13 +35,13 @@ fun ApkInspectorScreen(apkPath: String, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CharcoalBg)
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
         Button(
             onClick = onBack,
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             Text("Back to Dashboard")
         }
@@ -53,13 +52,13 @@ fun ApkInspectorScreen(apkPath: String, onBack: () -> Unit) {
             text = "APK Package Inspector",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = TextWhite
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (packageInfo != null) {
-            Text("Package Name: ${packageInfo.packageName}", color = ElectricBlue)
+            Text("Package Name: ${packageInfo.packageName}", color = MaterialTheme.colorScheme.primary)
             Text("Version Name: ${packageInfo.versionName}", color = TextWhite)
             Text("Version Code: ${packageInfo.versionCode}", color = TextWhite)
 
