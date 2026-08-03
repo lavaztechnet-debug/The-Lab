@@ -1,5 +1,6 @@
 package com.thelab.mediahub.data
 
+import android.content.Context
 import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -27,15 +28,14 @@ interface MediaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRaw(item: MediaEntity)
 
-    // Conditional Upsert: Skips updates if incoming item contains an older fresh epoch
     @Transaction
     suspend fun upsertSmart(item: MediaEntity) {
-        if (item.sourceFreshEpoch < MIN_CONTENT_EPOCH_MS) return // Hard rejection
+        if (item.sourceFreshEpoch < MIN_CONTENT_EPOCH_MS) return
         val existing = findByHash(item.contentHash)
         if (existing == null) {
             insertRaw(item)
         } else if (item.sourceFreshEpoch >= existing.sourceFreshEpoch) {
-            insertRaw(item.copy(uriString = existing.uriString)) // Preserve primary key
+            insertRaw(item.copy(uriString = existing.uriString))
         }
     }
 
@@ -65,7 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getDatabase(context: android.content.Context): AppDatabase {
+        fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
