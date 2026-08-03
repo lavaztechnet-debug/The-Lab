@@ -14,8 +14,6 @@ import com.thelab.mediahub.ui.theme.AppThemeStyle
 
 @Composable
 fun SettingsScreen(
-    isDarkTheme: Boolean,
-    onToggleDarkTheme: (Boolean) -> Unit,
     currentStyle: AppThemeStyle,
     onSelectStyle: (AppThemeStyle) -> Unit,
     onBack: () -> Unit
@@ -32,7 +30,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Settings & Style Switcher",
+                text = "Extracted Theme Selector",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -44,40 +42,13 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Dark/Light Toggle
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Dark Mode", fontWeight = FontWeight.Bold)
-                    Text("Switch between Dark and Light UI", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                }
-                Switch(
-                    checked = isDarkTheme,
-                    onCheckedChange = onToggleDarkTheme
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Theme Styles Selector
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Visual Theme Palette", fontWeight = FontWeight.Bold)
+                Text("Select Extracted Palette Style", fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 AppThemeStyle.values().forEach { style ->
@@ -89,7 +60,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = style.name.lowercase().replaceFirstChar { it.uppercase() },
+                            text = style.name.replace("_", " "),
                             color = if (currentStyle == style) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                         RadioButton(

@@ -7,61 +7,46 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 enum class AppThemeStyle {
-    CHARCOAL, CYBERPUNK, EMERALD, NORDIC
+    MIDNIGHT_BLUE, CRIMSON_NOIR, WALNUT_NOIR, NEUMORPHIC_LIGHT
 }
 
 @Composable
 fun TheLabTheme(
-    darkTheme: Boolean = true,
-    themeStyle: AppThemeStyle = AppThemeStyle.CHARCOAL,
+    themeStyle: AppThemeStyle = AppThemeStyle.CRIMSON_NOIR,
     content: @Composable () -> Unit
 ) {
-    val primaryColor = when (themeStyle) {
-        AppThemeStyle.CHARCOAL -> ElectricBlue
-        AppThemeStyle.CYBERPUNK -> NeonPink
-        AppThemeStyle.EMERALD -> EmeraldGreen
-        AppThemeStyle.NORDIC -> FrostCyan
-    }
-
-    val bgColor = if (darkTheme) {
-        when (themeStyle) {
-            AppThemeStyle.CHARCOAL -> CharcoalBg
-            AppThemeStyle.CYBERPUNK -> CyberBg
-            AppThemeStyle.EMERALD -> EmeraldBg
-            AppThemeStyle.NORDIC -> NordicBg
-        }
-    } else {
-        Color(0xFFF0F2F5)
-    }
-
-    val cardColor = if (darkTheme) {
-        when (themeStyle) {
-            AppThemeStyle.CHARCOAL -> CharcoalCard
-            AppThemeStyle.CYBERPUNK -> CyberCard
-            AppThemeStyle.EMERALD -> EmeraldCard
-            AppThemeStyle.NORDIC -> NordicCard
-        }
-    } else {
-        Color(0xFFFFFFFF)
-    }
-
-    val colorScheme = if (darkTheme) {
-        darkColorScheme(
-            primary = primaryColor,
-            background = bgColor,
-            surface = cardColor,
+    val colorScheme = when (themeStyle) {
+        AppThemeStyle.MIDNIGHT_BLUE -> darkColorScheme(
+            primary = MidnightAccent,
+            background = MidnightBg,
+            surface = MidnightCard,
             onPrimary = TextWhite,
             onBackground = TextWhite,
             onSurface = TextWhite
         )
-    } else {
-        lightColorScheme(
-            primary = primaryColor,
-            background = bgColor,
-            surface = cardColor,
+        AppThemeStyle.CRIMSON_NOIR -> darkColorScheme(
+            primary = CrimsonAccent,
+            background = CrimsonBg,
+            surface = CrimsonCard,
+            onPrimary = TextWhite,
+            onBackground = TextWhite,
+            onSurface = TextWhite
+        )
+        AppThemeStyle.WALNUT_NOIR -> darkColorScheme(
+            primary = WalnutAccent,
+            background = WalnutBg,
+            surface = WalnutCard,
+            onPrimary = TextWhite,
+            onBackground = TextWhite,
+            onSurface = TextWhite
+        )
+        AppThemeStyle.NEUMORPHIC_LIGHT -> lightColorScheme(
+            primary = NeumorphicAccent,
+            background = NeumorphicBg,
+            surface = NeumorphicCard,
             onPrimary = Color.White,
-            onBackground = Color(0xFF111111),
-            onSurface = Color(0xFF111111)
+            onBackground = Color(0xFF1A202C),
+            onSurface = Color(0xFF1A202C)
         )
     }
 

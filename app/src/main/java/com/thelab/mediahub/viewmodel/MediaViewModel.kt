@@ -1,6 +1,9 @@
 package com.thelab.mediahub.viewmodel
 
 import android.app.Application
+import android.app.DownloadManager
+import android.content.Context
+import android.net.Uri
 import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -38,7 +41,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             mediaDao.getAllMediaItems().collect { items ->
                 _mediaItems.value = if (_excludeLocal.value) {
-                    items.filter { it.path.startsWith("web://") || it.path.startsWith("network://") }
+                    items.filter { it.path.startsWith("http") || it.path.startsWith("network://") }
                 } else {
                     items
                 }
@@ -51,13 +54,31 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
         loadAllMedia()
     }
 
+    // Android Native System DownloadManager Handler (Crash-Free)
     fun downloadMediaItem(item: MediaItem) {
         viewModelScope.launch(Dispatchers.IO) {
-            val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "The-Lab")
-            if (!downloadDir.exists()) downloadDir.mkdirs()
+            try {
+                if (item.path.startsWith("http://") || item.path.startsWith("https://")) {
+                    val request = DownloadManager.Request(Uri.parse(item.path))
+                        .setTitle("The-Lab: " + item.fileName)
+                        .setDescription("Downloading discovered media resource...")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "The-Lab/" + item.fileName + ".mp4")
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true)
 
-            val targetFile = File(downloadDir, item.fileName.replace("/", "_") + ".txt")
-            targetFile.writeText("Resource: ${item.fileName}\nSource Path: ${item.path}\nCategory: ${item.category}\n\n${item.formattedLabel}")
+                    val downloadManager = getApplication<Application>().getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    downloadManager.enqueue(request)
+                } else {
+                    // Local or text item
+                    val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "The-Lab")
+                    if (!downloadDir.exists()) downloadDir.mkdirs()
+                    val targetFile = File(downloadDir, item.fileName.replace("[^a-zA-Z0-9.-]".toRegex(), "_") + ".txt")
+                    targetFile.writeText("Resource: ${item.fileName}\nSource Path: ${item.path}\nCategory: ${item.category}\n\n${item.formattedLabel}")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -81,11 +102,11 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            val movies = InternetIngestionEngine.fetch2026Movies()
+            val horrorMovies = InternetIngestionEngine.fetchHorrorMovies()
             val prompts = InternetIngestionEngine.fetchLatestPrompts()
             val networkDevices = InternetIngestionEngine.scanLocalWifiNetwork()
 
-            discoveredFiles.addAll(movies)
+            discoveredFiles.addAll(horrorMovies)
             discoveredFiles.addAll(prompts)
             discoveredFiles.addAll(networkDevices)
 
@@ -101,7 +122,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 mediaDao.getMediaByCategory(category).collect { items ->
                     _mediaItems.value = if (_excludeLocal.value) {
-                        items.filter { it.path.startsWith("web://") || it.path.startsWith("network://") }
+                        items.filter { it.path.startsWith("http") || it.path.startsWith("network://") }
                     } else {
                         items
                     }
@@ -117,7 +138,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 mediaDao.searchMedia(query).collect { items ->
                     _mediaItems.value = if (_excludeLocal.value) {
-                        items.filter { it.path.startsWith("web://") || it.path.startsWith("network://") }
+                        items.filter { it.path.startsWith("http") || it.path.startsWith("network://") }
                     } else {
                         items
                     }

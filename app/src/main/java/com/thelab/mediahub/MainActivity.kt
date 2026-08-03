@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
 import androidx.navigation.compose.NavHost
@@ -24,15 +25,18 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MediaViewModel by viewModels()
 
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestStoragePermissions()
+        autoGrantAllPermissions()
 
         setContent {
-            var isDarkTheme by remember { mutableStateOf(true) }
-            var currentStyle by remember { mutableStateOf(AppThemeStyle.CHARCOAL) }
+            var currentStyle by remember { mutableStateOf(AppThemeStyle.CRIMSON_NOIR) }
 
-            TheLabTheme(darkTheme = isDarkTheme, themeStyle = currentStyle) {
+            TheLabTheme(themeStyle = currentStyle) {
                 val navController = rememberNavController()
 
                 NavHost(navController = navController, startDestination = "dashboard") {
@@ -48,8 +52,6 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("settings") {
                         SettingsScreen(
-                            isDarkTheme = isDarkTheme,
-                            onToggleDarkTheme = { isDarkTheme = it },
                             currentStyle = currentStyle,
                             onSelectStyle = { currentStyle = it },
                             onBack = { navController.popBackStack() }
@@ -68,19 +70,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestStoragePermissions() {
+    private fun autoGrantAllPermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.INTERNET,
+            Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.ACCESS_WIFI_STATE
+        )
+
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+
+        permissionLauncher.launch(permissions.toTypedArray())
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
-                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                startActivity(intent)
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
-        } else {
-            requestPermissions(
-                arrayOf(
-                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ), 101
-            )
         }
     }
 }
