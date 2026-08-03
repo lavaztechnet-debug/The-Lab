@@ -45,10 +45,10 @@ fun MainDashboardScreen(viewModel: MediaViewModel, onInspectApk: (String) -> Uni
                 color = ElectricBlue
             )
             Button(
-                onClick = { viewModel.triggerDirectorySweep() },
+                onClick = { viewModel.triggerFullSweep() },
                 colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
             ) {
-                Text(if (isScanning) "Scanning..." else "Manual Sweep")
+                Text(if (isScanning) "Scanning..." else "Full Sweep")
             }
         }
 
