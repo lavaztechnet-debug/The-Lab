@@ -12,16 +12,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.thelab.mediahub.data.FileCategory
-import com.thelab.mediahub.data.MediaItem
+import com.thelab.mediahub.data.MediaEntity
 import com.thelab.mediahub.ui.theme.*
 import com.thelab.mediahub.viewmodel.MediaViewModel
+import java.text.SimpleDateFormat
+import java.util.*
+
+enum class TimeRangeFilter(val label: String, val days: Long?) {
+    HOURS_24("24h", 1),
+    DAYS_7("7d", 7),
+    DAYS_30("30d", 30),
+    ALL("All 2026", null)
+}
 
 @Composable
 fun MainDashboardScreen(
@@ -31,10 +39,10 @@ fun MainDashboardScreen(
 ) {
     val items by viewModel.mediaItems.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
-    val excludeLocal by viewModel.excludeLocal.collectAsState()
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val is2026Only by viewModel.is2026Only.collectAsState()
+    val selectedRange by viewModel.selectedRange.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-    var selectedItemForDetail by remember { mutableStateOf<MediaItem?>(null) }
+    var selectedItemForDetail by remember { mutableStateOf<MediaEntity?>(null) }
     val context = LocalContext.current
 
     Column(
@@ -43,7 +51,6 @@ fun MainDashboardScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        // Top Neumorphic 3D Header Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -55,18 +62,18 @@ fun MainDashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "THE-LAB 3D",
+                text = "THE-LAB 2026",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Row {
                 Button(
-                    onClick = { viewModel.triggerFullSweep() },
+                    onClick = { viewModel.triggerManualSweep(context) },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(if (isScanning) "Scanning..." else "Full Sweep", fontSize = 11.sp)
+                    Text(if (isScanning) "Sweeping..." else "Full Sweep", fontSize = 11.sp)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 IconButton(onClick = onOpenSettings) {
@@ -75,16 +82,24 @@ fun MainDashboardScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Neumorphic Search Field
+        FilterChips2026Row(
+            selectedRange = selectedRange,
+            onSelectRange = { viewModel.setTimeRange(it) },
+            is2026Only = is2026Only,
+            onToggle2026Only = { viewModel.set2026Only(it) }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         OutlinedTextField(
             value = searchQuery,
             onValueChange = {
                 searchQuery = it
                 viewModel.search(it)
             },
-            placeholder = { Text("Search packages, media, docs...") },
+            placeholder = { Text("Search 2026 media, prompts, docs...") },
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,65 +108,26 @@ fun MainDashboardScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Category Filter Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                CategoryPill("All", selectedCategory == null || selectedCategory == FileCategory.ALL) {
-                    viewModel.filterByCategory(FileCategory.ALL)
-                }
-                CategoryPill("Videos", selectedCategory == FileCategory.VIDEO) {
-                    viewModel.filterByCategory(FileCategory.VIDEO)
-                }
-                CategoryPill("Docs", selectedCategory == FileCategory.DOCUMENT) {
-                    viewModel.filterByCategory(FileCategory.DOCUMENT)
-                }
-                CategoryPill("APKs", selectedCategory == FileCategory.PACKAGE) {
-                    viewModel.filterByCategory(FileCategory.PACKAGE)
-                }
-                CategoryPill("Photos", selectedCategory == FileCategory.PHOTO) {
-                    viewModel.filterByCategory(FileCategory.PHOTO)
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Hide Local", fontSize = 9.sp)
-                Switch(
-                    checked = excludeLocal,
-                    onCheckedChange = { viewModel.toggleExcludeLocal(it) },
-                    modifier = Modifier.scale(0.6f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Discovered Item List
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             items(items) { item ->
-                NeumorphicItemCard(
+                Media2026ItemCard(
                     item = item,
-                    onClick = { selectedItemForDetail = item },
-                    onInspectApk = onInspectApk
+                    onClick = { selectedItemForDetail = item }
                 )
             }
         }
     }
 
-    // Detail Dialog Window
     selectedItemForDetail?.let { item ->
         AlertDialog(
             onDismissRequest = { selectedItemForDetail = null },
             confirmButton = {
                 Button(onClick = {
                     viewModel.downloadMediaItem(item)
-                    Toast.makeText(context, "Download enqueued in system notification bar!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Enqueued in DownloadManager", Toast.LENGTH_SHORT).show()
                     selectedItemForDetail = null
                 }) {
                     Text("Download")
@@ -165,11 +141,11 @@ fun MainDashboardScreen(
             title = { Text(item.fileName, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    SourceBadge(path = item.path)
+                    SourceBadge(path = item.uriString)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Category: ${item.category.name}")
                     Text("MIME: ${item.mimeType}")
-                    Text("Source: ${item.path}", fontSize = 11.sp, color = TextGray)
+                    Text("URI: ${item.uriString}", fontSize = 11.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Details: ${item.formattedLabel}", fontSize = 12.sp)
                 }
@@ -179,21 +155,45 @@ fun MainDashboardScreen(
 }
 
 @Composable
-fun CategoryPill(label: String, isSelected: Boolean, onClick: () -> Unit) {
-    Surface(
-        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
-            .neuDepth(shadowRadius = 4.dp, offset = 2.dp)
-            .clickable { onClick() }
+fun FilterChips2026Row(
+    selectedRange: TimeRangeFilter,
+    onSelectRange: (TimeRangeFilter) -> Unit,
+    is2026Only: Boolean,
+    onToggle2026Only: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TimeRangeFilter.values().forEach { range ->
+                val isSelected = selectedRange == range
+                Surface(
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .neuDepth(shadowRadius = 4.dp, offset = 2.dp)
+                        .clickable { onSelectRange(range) }
+                ) {
+                    Text(
+                        text = range.label,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("2026 Only", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Switch(
+                checked = is2026Only,
+                onCheckedChange = onToggle2026Only
+            )
+        }
     }
 }
 
@@ -221,7 +221,11 @@ fun SourceBadge(path: String) {
 }
 
 @Composable
-fun NeumorphicItemCard(item: MediaItem, onClick: () -> Unit, onInspectApk: (String) -> Unit) {
+fun Media2026ItemCard(item: MediaEntity, onClick: () -> Unit) {
+    val sevenDaysAgoMs = System.currentTimeMillis() - (7L * 24 * 3600 * 1000)
+    val isFresh = item.sourceFreshEpoch >= sevenDaysAgoMs
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -240,29 +244,42 @@ fun NeumorphicItemCard(item: MediaItem, onClick: () -> Unit, onInspectApk: (Stri
                 Text(
                     text = item.fileName,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                SourceBadge(path = item.path)
+
+                if (isFresh) {
+                    Surface(
+                        color = Color(0xFFEF4444),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.padding(start = 6.dp)
+                    ) {
+                        Text(
+                            text = "[2026 FRESH]",
+                            color = Color.White,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(4.dp))
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text(
-                text = item.formattedLabel,
-                color = TextGray,
-                fontSize = 11.sp
+                text = "Added: ${dateFormat.format(Date(item.dateAddedEpoch))} • Modified: ${dateFormat.format(Date(item.dateModifiedEpoch))}",
+                fontSize = 10.sp,
+                color = Color.Gray
             )
 
-            if (item.category == FileCategory.PACKAGE && item.fileName.endsWith(".apk")) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { onInspectApk(item.path) },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Inspect Manifest", fontSize = 10.sp)
-                }
+            if (item.uriString.startsWith("http") || item.uriString.startsWith("network://")) {
+                Text(
+                    text = "Source Last-Modified: ${dateFormat.format(Date(item.sourceFreshEpoch))}",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
