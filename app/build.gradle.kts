@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.thelab.mediahub"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.thelab.mediahub"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
@@ -27,7 +27,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
